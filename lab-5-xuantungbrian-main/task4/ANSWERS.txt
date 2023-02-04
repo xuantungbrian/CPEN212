@@ -1,0 +1,49 @@
+Q1. What is reused in your modified code, and what is it reused across?
+	oacts is reused across c, r, s and reused spatially with x. 
+	iacts is reused across k and reused spatially with r. 
+	wts is reused across x, y, n and reused spatially with (x+r). 
+	bias is reused across x, y, n (temporal) and reused spatially with k.
+	iacts is also reused in y, x loop (temporal) (based on the pattern discuss in task 1)	 
+	wts is reused in c loop (temporal) since CONV2_R, CONV2_S are small.
+
+Q2. Calculate the expected L1 data cache read miss rate in conv2 before and after your modifications. Explain in detail why you expect this miss rate; unsupported answers will receive no credit.
+	Before: (64*32*3*3*24*24 + 8 + 64*32*3*3*24*24*100*2)/(64*32*3*3*24*24*100*3+100*24*24*64) = 67%
+	- Calculating reading times:
+		+ First loop: accessing bias for batch_sz*IN3_Y*IN3_X*CONV2_K times since there is 4 nested loops (100*24*24*64)
+		+ Second loop: For each time the calculation is exectuted, 3 term will be read: oacts, wts, 
+		iacts. Since there are 7 nested loops, the reading times is CONV2_K*CONV2_C*CONV2_S*CONV2_R*IN3_Y*IN3_X*batch_sz*3. (64*32*3*3*24*24*100*3)
+	- Calculating miss times:
+		+ First loop: bias is always reuse and only the first time reading new bias to cache line (when k change by 7) is missed -> 8 misses (CONV2_K = 64 -> 8 cache lines)
+		+ Second loop: wts is reused in the most inner loop (temporal) and only the first time reading new wts (at the start of the most inner loop)
+		is missed -> 1/batch_sz miss rate in reading wts. wts is read CONV2_K*CONV2_C*CONV2_S*CONV2_R*IN3_Y*IN3_X*batch_sz times (above) 
+		-> CONV2_K*CONV2_C*CONV2_S*CONV2_R*IN3_Y*IN3_X misses. oacts and iacts are not reused -> CONV2_K*CONV2_C*CONV2_S*CONV2_R*IN3_Y*IN3_X*batch_sz*3*2 misses.
+	
+	After: (79*32*64*100 + 8 + 3*64*32*24*100 + 36*64*100)/(64*32*3*3*24*24*100*3+100*24*24*64) = 1%
+	- Calculating reading times:
+		+ First loop: accessing bias for batch_sz*IN3_Y*IN3_X*CONV2_K times since there is 4 nested loops (100*24*24*64)
+		+ Second loop: For each time the calculation is exectuted, 3 term will be read: oacts, wts, 
+		iacts. Since there are 7 nested loops, the reading times is CONV2_K*CONV2_C*CONV2_S*CONV2_R*IN3_Y*IN3_X*batch_sz*3. (64*32*3*3*24*24*100*3)
+	- Calculating miss times:
+		+ First loop: bias is always reuse and only the first time reading new bias to cache line (when k change by 7) is missed -> 8 misses (CONV2_K = 64 -> 8 cache lines)
+		+ Second loop: oacts is always reused in the s, r loops (temporal), again reused in x loop (spatial) -> only reading when x change 7(one cache line).
+		-> 3 cache line (IN3_X=24) -> 3 misses (just calculate after s, x, r loop (finishing a y loop))
+		After all loops: 3*CONV2_K*CONV2_C*IN3_Y*batch_sz misses. 
+		+ wts after finishing an c loop will save data from k (abitrary number) to k + (CONV2_S-1)*CONV2_R+CONV2_R-1 = k+8 which is 9 elements.
+		So it takes 2 cache line and actually saves k to k+15. In the next c loop, wts will need data from 9+k to k+17. Which most of it has been 
+		saved in the cache. So there is a big part is reused in 2 consecutive c loop. 3 miss over 2 first loop of c -> estimate 36 miss over 36 c loops.
+		-> 36*CONV2_K*batch_sz misses.
+		+ iacts: After a y loops, we cache k to k+(CONV2_S-1)*(IN2_X+ IN3_X-1)(CONV2_R-1) = k+77 -> 10 cache lines. -> 10 misses, read 78 times.
+		In y+1 loop, we need k+IN2_X=k+26 to k+26+77=k+103 -> Need 3 more cache lines -> 3 more miss.
+		So we have 10 misses in first loop and estimate 3 miss every next loop in y. -> 10+3*23 = 79 misses after finished a y loop.
+		-> 79*32*64*100 misses.
+
+Q3. Explain any differences between your expected and measured L1 data cache read miss rates.
+	- Uncertainty in the index produced from the address of elements of the arrays so not sure if 
+	a cache line is kicked out the cache so the calculations above are at least 
+	- Compiler's optimization (with register)
+	- Estimate wts, iacts (close but not true)
+	- In 2 consecutive loop of c in oacts, cache line needed is 72 and data is the same (c doesnt change oacts),
+	so maybe the next loop of c can reused them, but 72 lines arent small and they can be evicted.
+
+
+

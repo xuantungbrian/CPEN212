@@ -1,0 +1,61 @@
+= Lab 6: Easiest. Marks. Ever.
+CPEN 212
+:experimental:
+:toc: macro
+:!toc-title:
+:toclevels: 1
+ifndef::env-github[:icons: font]
+ifdef::env-github[]
+:!toc-title:
+:caution-caption: :fire:
+:important-caption: :exclamation:
+:note-caption: :paperclip:
+:tip-caption: :bulb:
+:warning-caption: :warning:
+endif::[]
+
+
+In this lab, we would like to get some feedback from you that we can incorporate into future offerings of the course.
+
+You will receive full marks for each task provided your submission is a bona fide attempt to answer the relevant question. To ensure you do that, make sure to read the entire description for each task.
+
+
+== Logistics
+
+As in the other labs, all submissions are made by committing your work and pushing the commits to the assignment repo on GitHub.
+
+As with all work in CPEN212, all of your responses must be original work and written by you.
+
+
+== Task 1: What do you wish you knew before the course?
+
+In `task1/ANSWERS.txt`, please tell us what technical skills or technical knowledge you wish you had before taking CPEN 212. What skills would have made doing the labs easier? What background would have made the content easier to learn?
+
+For example, the labs are much easier to work on if you know how to interact with the UNIX command-line interface — edit files, move files around, and so on. But a number of the incoming students did not have these skills.
+
+So, we are interested in what prior skills _you_ would have found useful.
+
+Note that we are not asking you how to change the _course content_, but about what _prior knowledge and skills_ would have helped you do the existing labs and understand the existing content.
+
+=== Deliverables
+
+* `task1/ANSWERS.txt` with your comments.
+
+
+== Task 2: How could we have gotten you to prepare?
+
+In `task2/ANSWERS.txt`, please tell us how you think we could have convinced you to acquire the skills you listed in Task 1 either prior to taking CPEN212 or in the first week of class.
+
+For example, early in the course we asked you to review the https://missing.csail.mit.edu/[Missing Semester] content if you were not very familiar with working in a command-line environment. But in the labs it became pretty clear that many students who would have benefitted from doing this had in fact not done it.  And (needless to say) it's not possible for CPEN212 to have labs that teach you how to use the command line any more than we can have labs teaching you how to type.
+
+So, we'd like to know how you think we could have convinced _you_ to learn the skills you listed in Task 1.
+
+=== Deliverables
+
+* `task2/ANSWERS.txt` with your comments.
+
+
+== Marks
+
+* Task 1: 5
+* Task 2: 5

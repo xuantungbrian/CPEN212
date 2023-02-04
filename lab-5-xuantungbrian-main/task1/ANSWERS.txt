@@ -1,0 +1,27 @@
+Q1. Consider the fc1 function. For each array that can be reused in the second loop, identify the array and which invariant indices it is reused against.
+	oacts is reused across c.
+	wts is reused across c.
+	iacts is reused across c.
+	bias is reused across n. 
+
+Q2. Consider the conv2 function. For each array that can be reused in the second loop, identify the array and which invariant indices it is reused against.
+	oacts can be reused for every c, r, s.
+	iacts can be reused for every k. 
+	wts can be reused for every x, y, n.
+	iacts is also reuse in a y loop (based on the pattern discuss in task 1)
+	bias is reused across x, y, n. 
+
+Q3. In conv2, there is a reuse due to the fact that the value of a + b can be equal to the value of c + d for some values of a, b, c, and d. Identify this reuse and explain the reuse pattern as above.
+	The pattern only appears in iacts in the second loop (y+s and x+r).
+	Assume the order from the outer most of 4 nested loops is y -> s -> x -> r (since thats what I did after implementing spatial locality).
+	Since x < 24 and r < 3, the cache lines needed for it will be 9 and they are spatially reused in these 2 loops.
+	In y+s case:
+		for (size_t y = 0; y < IN3_Y; ++y) {			
+			for (size_t s = 0; s < CONV2_S; ++s) {
+			...
+			}
+		}
+	When y = 0, y + s will run from 0 to CONV2_S - 1. 
+	When y = 1, y + s will run from 1 to CONV2_S.
+	So there is an overlap of 1 to CONV2_S (2/6 is miss) and we can use tiling so that all values of iacts in a y loop stay on the cache and we can use it for loop y+1.
+	This pattern can only be reused across the y loop.

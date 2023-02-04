@@ -1,0 +1,3 @@
+- So at the beginning of task 1, I think many have the trouble of doing ssh (even though there are instruction) since the instructions are not very clear and we have to solve that ourself.
+- And yes, obviously UNIX commands
+- C code. I basically just have APSC 160 for it (havent take CPSC 221). I dont know if others having troubles like me but I started to figure out how to use pointers in lab 3 and some techniques dealing with bits of a number (masking).

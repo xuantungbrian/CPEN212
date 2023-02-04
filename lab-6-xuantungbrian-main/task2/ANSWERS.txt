@@ -1,0 +1,3 @@
+- Please write the instructions clearer (like step to step)
+- I know that there is a summer bootcamp and it was pretty useful. I didnt participate in that and some are the same. But I think its fine to know just some normally used commands is fine. So my suggestion is maaking a list of some commands and operations normally used in labs (which is easy since I guess Im only using cd, ls and vim). 
+- I dont really know about this. I mean it would be better if in the lab there are a little bit about pointers but I guess its fine since its the type of knowledge that you gradually gain while coding.

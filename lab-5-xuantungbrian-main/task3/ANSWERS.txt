@@ -1,0 +1,48 @@
+Q1. What is reused in your modified code, and what is it reused across?
+	oacts is reused across c (temporal) and reuse spatially with k.
+	wts is reused across n (temporal) and reuse spatially with c.
+	iacts is reused across k (temporal) and reuse spatially with c.
+	bias is reused across n (temporal) and reuse spatially with k.
+
+Q2. Calculate the expected L1 data cache read miss rate in fc1 before and after your modifications. Explain in detail why you expect this miss rate; unsupported answers will receive no credit.
+	Before: ((9216*128*100-128*100)/9215/8 + (9216*128*100*2)/8 + 16)/(9216*128*100*3)=8.33% 
+	- Calculating reading times: 
+		+ For each time the calculation is exectuted, 3 term will be read: oacts, wts, iacts (or bias, wts, 
+		iacts based on the condition if-else). Since there are 3 nested loops, the calculations will be executed FC1_C*FC1_K*batch_sz times.
+		So the total reading times is FC1_K*FC1_C*batch_sz*3. (9216*128*100*3)
+	- Calculating miss times:
+		+ bias miss the first element of the cache line. To read all k, it needs 16 cache lines (FC1_K=128) and 
+		this data is reused in the C, n, c loop (these dont affect bias). -> 16 misses 
+		+ oacts is always reused in the inner loop (temporal), again reused in middle loop (spatial) -> 1/(FC1_C-1)*1/8 missed.
+		FC1_C-1 since the if-else branch. oacts is read FC1_K*FC1_C*batch_sz-batch_sz*FC1_K (if-else branch) times.
+		So (FC1_K*FC1_C*batch_sz-batch_sz*FC1_K)/(FC1_C-1)/8 is miss
+		+ wts, iacts miss the first element of the cache line -> 1/8 is missed. They are read FC1_K*FC1_C*batch_sz*2 times.
+		So FC1_K*FC1_C*batch_sz*2/8 miss
+
+	After: (16 + 9216*128*100/72/2 + 9216*128*100/800 + 9216*128*100/16)/(9216*128*100*3 + 100*128) = 2.4% 
+	- Calculating reading times:
+		+ First loop: accessing bias for batch_sz*FC1_K times since there is 2 nested loops (100*128)
+		+ Second loop: For each time the calculation is exectuted, 3 term will be read: oacts, wts, 
+		iacts. Since there are 3 nested loops, the calculations will be executed FC1_C*FC1_K*batch_sz times.
+		So the total reading times is FC1_K*FC1_C*batch_sz*3. (9216*128*100*3)
+	- Calculating miss times:
+		+ First loop: bias miss the first element of the cache line. To read all k, it needs 16 cache lines (FC1_K=128) and 
+		this data is reused in the n loop (n doesnt affect bias). -> 16 misses 
+		+ Second loop: oacts is always reused in the innermost loop (temporal), again reused in k loop (spatial) -> 1/72*1/2 missed (since k only have 2 loops so only
+		need 1 cache line -> miss 1 and use only 2 out of 8 elemements of the cache line). oacts is read FC1_K*FC1_C*batch_sz times.
+		So (FC1_K*FC1_C*batch_sz)/72/2 misses.
+		+ wts miss the first element of the cache line (c loop) -> 1/8 is missed. It is reused temporally in n loop (all the data is still kept in the cache).
+		-> 1/100 miss. wts is read FC1_K*FC1_C*batch_sz times.
+		So FC1_K*FC1_C*batch_sz/800 misses.
+		+ iacts is always reused in the innermost loop (spatial), again reused in k loop (temporal) -> 1/8*1/2 missed.
+		iacts is read FC1_K*FC1_C*batch_sz times.
+		So (FC1_K*FC1_C*batch_sz)/16 misses.
+
+Q3. Explain any differences between your expected and measured L1 data cache read miss rates.
+	- Uncertainty in the index produced from the address of elements of the arrays so not sure if 
+	a cache line is kicked out the cache so the calculations above are at least
+	- Compiler's optimization (with register)
+	
+
+
+
