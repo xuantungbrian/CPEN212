@@ -1,0 +1,3 @@
+Script started on 2022-03-14 22:34:33-07:00 [COMMAND="./crash-ref" TERM="xterm" TTY="/dev/pts/8" COLUMNS="80" LINES="24"]
+lsjobscmd_jobsquit
+Script done on 2022-03-14 22:37:45-07:00 [COMMAND_EXIT_CODE="0"]
