@@ -1,0 +1,73 @@
+When answering questions about code, make sure your answer succinctly describes the in English or as a high-level mathematical expression. Answers that merely transcribe the code into English (e.g., "next, it adds register rax to register rdi") will receive no credit.
+
+Your answers go below each question.
+
+
+Q1: There are four call instructions in the first sixty bytes following the label _start. Each checks something about the input argument. What does each of them check, in the order they appear in the program?
+
+1st: pass if number of characters in argument below 15 (dec)
+2nd: pass if rotate and xor of all character is 71 (hex)
+3rd: pass if ascii number of last and first is 32 (dec), second last and the second is 32 (dec), …
+This pattern is symmetric through middle of the string. The number of characters in a string is even.
+4th: pass if half the string contains these characters: D, E, N, N, I, S
+
+
+
+
+
+Q2: The code is broken into several smaller functions. (For this task, we will define functions as targets of call instructions.) Reverse-engineer those functions.  For each function show below (a) the address, (b) what the function expects as the argument(s) and in which register(s), and (c) what the function computes.
+
+Part B and C is written respectively.
+1st: 
+A) 0x40110d
+B) Address of string, number of arguments
+C) Rdi, rbx
+D) Check if there is only one argument, go straight to printing if there are different than one argument. Compute Rbx if the input string passed 4 checks and output YOU WIN or BOOM.
+
+2nd: 
+A) 0x4010fc
+B) Address of string
+C) Rdi
+D) Check number of characters in string, rax=1 if no. char < 15.
+
+3rd: 
+A) 0x40118b
+B) Address of string
+C) Rdi
+D) Compute number of char in string.
+
+4th: 
+A) 0x401206
+B) Address of string
+C) Rdi
+D) Rotate and xor all the characters in the string.
+
+5th:
+A) 0x401000
+B) Address of string
+C) Rdi
+D) Compute the difference between the last and first char, second last and second char,… rax=1 if string has this symmetrical pattern.
+
+6th:
+A) 0x4011bc
+B) Address of string
+C) Rdi
+D) Copy value of rax into address in rdi while rdi=rsp+0x8 at first and increase by 8 (each loop) for 100 (hex) times.
+Increase by 1 at certain address (rsp+rax*8) base on the character in string and stack pointer.
+
+7th:
+A) 0x40119c
+B) Address 0x40102c, rsp+208
+C) Rdi, rsi
+D) Check if string has certain chars, rax=1 if yes.
+
+
+Q3. Provide an example input that results in the hackme code assigned to you displaying "YOU WIN!"
+DENNISsinned
+
+
+
+
+
+
+

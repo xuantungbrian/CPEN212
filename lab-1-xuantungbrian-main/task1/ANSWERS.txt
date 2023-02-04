@@ -1,0 +1,42 @@
+Your answers go below each question.
+
+
+Q1: print saves rdi on the stack before calling len and restores it after len returns. How is rdi used in len, and why does print save it to the stack?
+
+rdi provides the address of the string for len, which is then stored in rax. Print saves rdi because it is not a callee-saved, print needs the original value of rdi and to avoid len, len_loop, len_end change it.
+
+
+
+Q2: The calling convention defines rbx, rbp, and r12-r15 as callee-saved registers, but print doesn't save any of them. Does this violate the calling convention? If so, how? If not, why not?
+
+Does not violate since print doesn’t change the value of those registers.
+
+
+
+Q3: _start uses rbx to track the argument count. Suppose we used rax instead. Would that work under the calling convention rules? If yes, explain why. If not, what would we need to change in _start to make this work (without modifying print or len)?
+
+Using rax does not work under calling convention rules. Since print change rax, we have to push rax into the stack before call print and pop it out when jumping into arg_loop again.
+
+
+
+Q4: List the five top entries on the stack at the point when the cmp instruction inside len is executed for the first time. For each entry, list the byte offset relative to rsp, what the value there represents, and the address of the instruction that wrote this value to the stack.
+
+0x0000000000000000  (0x40100b, byte offset 0, immediate 0)
+0x0000000000000000  (0x401000, byte offset 8 (hex), value of rbp before mov rbp, rsp instruction in len (which is also 0x0))
+0x0000000000401030  (0x40102b, byte offset 10, address of pop rdi in print) 
+0x000000000040107f  (0x40102a, byte offset 18, value of rdi before call len in print (which is the address of pre))
+0x000000000040105e (0x401059, byte offset 20, address of instruction pop rdi in arg_loop)
+
+
+
+
+Q5: xor rdi, rdi has an equivalent mov instruction. Why do you think xor rdi, rdi might be preferable?
+
+The equivalent instruction is mov rdi,0
+Xor instruction will return 0 if two value is the same. So xor rdi, rdi will make rdi=0
+The mov instruction is longer and takes more resource
+
+
+
+
+
